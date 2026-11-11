@@ -101,7 +101,7 @@ body::before{
   position:relative;z-index:1;display:grid;place-items:center;
 }
 .tabs{
-  display:grid;grid-template-columns:repeat(6,1fr);gap:4px;
+  display:grid;grid-template-columns:repeat(7,1fr);gap:3px;
   background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:4px;
   box-shadow:var(--sh);
 }
@@ -113,7 +113,7 @@ body::before{
   min-height:0;
 }
 .tab .ti{font-size:13px;line-height:1;opacity:.9}
-.tab .tl{font-size:9.5px;font-weight:700;letter-spacing:0;white-space:nowrap}
+.tab .tl{font-size:9px;font-weight:700;letter-spacing:0;white-space:nowrap}
 .tab:active{transform:scale(.96)}
 .tab.on{
   background:linear-gradient(160deg,var(--ac),var(--ac2));
@@ -254,6 +254,13 @@ svg{max-width:100%;height:auto;display:block;margin:8px auto}
 body.swiping{user-select:none}
 #installBtn{font-size:14px}#installBtn:not([hidden]){display:grid}
 </style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
+}
+</script>
 </head>
 <body>
 <div class="top">
@@ -272,6 +279,7 @@ body.swiping{user-select:none}
     <button class="tab" data-tab="sum" role="tab"><span class="ti">📊</span><span class="tl">الملخص</span></button>
     <button class="tab" data-tab="edit" role="tab"><span class="ti">✏️</span><span class="tl">تعديل</span></button>
     <button class="tab" data-tab="flow" role="tab"><span class="ti">💧</span><span class="tl">التصرف</span></button>
+    <button class="tab" data-tab="flowEdit" role="tab"><span class="ti">📝</span><span class="tl">تسجيل</span></button>
     <button class="tab" data-tab="io" role="tab"><span class="ti">📤</span><span class="tl">مشاركة</span></button>
   </div>
 </div>
@@ -281,6 +289,8 @@ body.swiping{user-select:none}
 <div class="card" id="evs" data-t="ev" hidden></div>
 
 <div class="card" id="edit" data-t="edit" hidden></div>
+<div class="card" id="flow" data-t="flow" hidden></div>
+<div class="card" id="flowEdit" data-t="flowEdit" hidden></div>
 <div class="card" id="io" data-t="io" hidden>
   <div class="ttl"><b>مشاركة واسترجاع</b></div>
   <div class="h" id="bkinfo"></div>
@@ -670,14 +680,25 @@ document.addEventListener("click",function(e){
   if(t.closest&&t.closest("#goev")){setTab("ev");return}
   if(t.id=="notif"){try{var r=Notification.requestPermission(function(){});if(r&&r.then)r.then(function(){renderEvents();notifyToday()})}catch(x){}}
 });
-function flowInfo(p){
+function pivotViewCard(p){
+  var a=age(p),has=pdU(p.pd)!=null;
   var hasQ=p.q!=null&&p.q!=="",hasM=p.mm!=null&&p.mm!=="";
-  if(!hasQ&&!hasM)return'<div class="h" style="margin:6px 0 2px">💧 التصرف وكمية المياه — لم تُسجَّل بعد (من تبويب التصرف)</div>';
-  return'<div class="stats two" style="margin-top:8px"><div><small>💧 التصرف</small><b style="font-size:15px">'+(hasQ?r1(+p.q)+" م³/س":"—")+'</b></div><div><small>💦 كمية المياه</small><b style="font-size:15px">'+(hasM?r1(+p.mm)+" مم":"—")+'</b>'+(p.qAt?'<span class="sub">آخر تعديل: '+fdate2(p.qAt)+'</span>':'')+'</div></div>';
+  var area=tot(p);
+  var h='<div class="ttl"><b>بيفوت رقم '+esc(p.no)+'</b></div>';
+  h+='<div class="stats" style="grid-template-columns:1fr 1fr;gap:8px">';
+  h+='<div><small>📐 إجمالي المساحة</small><b>'+(area?r1(area)+' فدان':'—')+'</b></div>';
+  h+='<div class="age"><small>🌱 العمر</small><b>'+ageTxt(a)+'</b>'+(ageSub(a)?'<span class="sub">'+ageSub(a)+'</span>':'')+'</div>';
+  h+='<div><small>📅 تاريخ الزراعة</small><b style="font-size:14px">'+(has?fdate(p.pd):'—')+'</b>'+(has?'':'<span class="sub">من تبويب تعديل</span>')+'</div>';
+  h+='<div><small>💧 التصرف</small><b>'+(hasQ?r1(+p.q)+' م³/س':'—')+'</b></div>';
+  h+='<div style="grid-column:1/-1"><small>💦 كمية المياه</small><b>'+(hasM?r1(+p.mm)+' مم':'—')+'</b>'+(p.qAt?'<span class="sub">آخر تعديل: '+fdate2(p.qAt)+'</span>':'')+'</div>';
+  h+='</div>';
+  return h;
 }
+function flowInfo(p){return ""}
 function renderView(){
   var p=D.p[D.sel];if(!p){$("view").innerHTML="";return}
-  $("view").innerHTML=banner()+'<div class="ttl"><b>بيفوت رقم '+esc(p.no)+'</b></div>'+info(p)+stats(p)+flowInfo(p)+pie(p)+summ(p)+lgd(p,"AB")+lgd(p,"CD");
+  // عرض مبسّط: إجمالي المساحة + التصرف + الكمية + تاريخ الزراعة + العمر + رسم الخريطة
+  $("view").innerHTML=banner()+pivotViewCard(p)+pie(p)+summ(p)+lgd(p,"AB")+lgd(p,"CD");
 }
 function editHalf(p,h){
   return'<div class="gh">'+HN[h]+' <small style="color:var(--mu);font-weight:400">(بالترتيب من السنتر للخارج)</small></div>'+
@@ -800,9 +821,49 @@ $("file").addEventListener("change",function(e){
   e.target.value="";
 });
 function fdate2(s){if(!s)return"—";try{var d=new Date(s+"T00:00:00");return d.toLocaleDateString("ar-EG",{year:"numeric",month:"short",day:"numeric"})}catch(e){return s}}
-function renderFlow(){var el=$("flow");if(!el)return;var rows=D.p.slice().sort(function(a,b){return(+a.no||0)-(+b.no||0)});var h="<b>💧 تصرف البيفوتات</b><div class=\"h\">أدخل التصرف (م³/ساعة) وكمية المياه (مم). يُحفظ تلقائيًا مع تاريخ آخر تعديل.</div><div style=\"overflow:auto\"><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr style=\"background:var(--in);text-align:center\"><th style=\"padding:8px 4px\">#</th><th style=\"padding:8px 4px\">تصرف<br><small>م³/س</small></th><th style=\"padding:8px 4px\">كمية المياه<br><small>مم</small></th><th style=\"padding:8px 4px\">آخر تعديل</th></tr></thead><tbody>";rows.forEach(function(p){var ix=D.p.indexOf(p);h+="<tr><td style=\"text-align:center;font-weight:700;padding:6px\">"+esc(p.no)+"</td><td><input type=\"number\" min=\"0\" step=\"any\" data-fk=\"q\" data-fi=\""+ix+"\" value=\""+(p.q!=null&&p.q!==""?p.q:"")+"\" style=\"width:100%;padding:6px;border:1px solid var(--bd);border-radius:8px;background:var(--in);text-align:center\"></td><td><input type=\"number\" min=\"0\" step=\"any\" data-fk=\"mm\" data-fi=\""+ix+"\" value=\""+(p.mm!=null&&p.mm!==""?p.mm:"")+"\" style=\"width:100%;padding:6px;border:1px solid var(--bd);border-radius:8px;background:var(--in);text-align:center\"></td><td style=\"text-align:center;font-size:12px;color:var(--mu)\" class=\"fat\">"+fdate2(p.qAt)+"</td></tr>"});h+="</tbody></table></div>";var filled=rows.filter(function(p){return(p.q!=null&&p.q!=="")||(p.mm!=null&&p.mm!=="")}).length;h+="<div style=\"margin-top:10px;font-size:12px;color:var(--mu)\">تم تسجيل "+filled+" من "+rows.length+" بيفوت</div>";el.innerHTML=h}
-
-var TAB_ORDER=["map","ev","sum","edit","flow","io"];
+function flowRows(){return D.p.slice().sort(function(a,b){return(+a.no||0)-(+b.no||0)})}
+function renderFlow(){
+  var el=$("flow");if(!el)return;
+  var rows=flowRows();
+  var filled=rows.filter(function(p){return(p.q!=null&&p.q!=="")||(p.mm!=null&&p.mm!=="")}).length;
+  var h='<div class="ttl"><b>💧 تصرف البيفوتات</b><div class="h">عرض فقط — للتسجيل استخدم تبويب «تسجيل»</div></div>';
+  h+='<div class="stats two"><div><small>بيفوتات مسجّلة</small><b>'+filled+'</b></div><div><small>الإجمالي</small><b>'+rows.length+'</b></div></div>';
+  h+='<div style="overflow:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--in);text-align:center">';
+  h+='<th style="padding:10px 4px">البيفوت</th><th style="padding:10px 4px">التصرف<br><small>م³/س</small></th><th style="padding:10px 4px">الكمية<br><small>مم</small></th><th style="padding:10px 4px">آخر تعديل</th></tr></thead><tbody>';
+  rows.forEach(function(p){
+    var has=(p.q!=null&&p.q!=="")||(p.mm!=null&&p.mm!=="");
+    h+='<tr style="'+(has?'':'opacity:.55')+'">';
+    h+='<td style="text-align:center;font-weight:800;padding:10px 4px">'+esc(p.no)+'</td>';
+    h+='<td style="text-align:center;padding:10px 4px;font-weight:700;color:var(--ac)">'+(p.q!=null&&p.q!==""?r1(+p.q):'—')+'</td>';
+    h+='<td style="text-align:center;padding:10px 4px;font-weight:700">'+(p.mm!=null&&p.mm!==""?r1(+p.mm)+' <small style="color:var(--mu)">مم</small>':'—')+'</td>';
+    h+='<td style="text-align:center;font-size:12px;color:var(--mu);padding:10px 4px">'+fdate2(p.qAt)+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="btns" style="margin-top:12px"><button class="btn p" type="button" id="goFlowEdit">تسجيل / تعديل القيم</button></div>';
+  el.innerHTML=h;
+}
+function renderFlowEdit(){
+  var el=$("flowEdit");if(!el)return;
+  var rows=flowRows();
+  var h='<div class="ttl"><b>📝 تسجيل التصرف</b><div class="h">تصرف البيفوت (م³/س) · الكمية بالمليمتر (مم) — يُحفظ تلقائيًا</div></div>';
+  h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--in);text-align:center">';
+  h+='<th style="padding:8px 4px">#</th><th style="padding:8px 4px">التصرف<br><small>م³/س</small></th><th style="padding:8px 4px">الكمية<br><small>مم</small></th><th style="padding:8px 4px">آخر تعديل</th></tr></thead><tbody>';
+  rows.forEach(function(p){
+    var ix=D.p.indexOf(p);
+    h+='<tr>';
+    h+='<td style="text-align:center;font-weight:800;padding:6px">'+esc(p.no)+'</td>';
+    h+='<td><input type="number" min="0" step="any" inputmode="decimal" data-fk="q" data-fi="'+ix+'" value="'+(p.q!=null&&p.q!==""?p.q:"")+'" placeholder="—" style="width:100%;padding:8px 6px;border:1.5px solid var(--bd);border-radius:10px;background:var(--in);text-align:center;font-weight:700"></td>';
+    h+='<td><input type="number" min="0" step="any" inputmode="decimal" data-fk="mm" data-fi="'+ix+'" value="'+(p.mm!=null&&p.mm!==""?p.mm:"")+'" placeholder="مم" style="width:100%;padding:8px 6px;border:1.5px solid var(--bd);border-radius:10px;background:var(--in);text-align:center;font-weight:700"></td>';
+    h+='<td style="text-align:center;font-size:12px;color:var(--mu)" class="fat">'+fdate2(p.qAt)+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  var filled=rows.filter(function(p){return(p.q!=null&&p.q!=="")||(p.mm!=null&&p.mm!=="")}).length;
+  h+='<div style="margin-top:10px;font-size:12px;color:var(--mu);text-align:center">مسجّل '+filled+' من '+rows.length+' · الحفظ تلقائي</div>';
+  el.innerHTML=h;
+}
+var TAB_ORDER=["map","ev","sum","edit","flow","flowEdit","io"];
 var curTab="map";
 function setTab(t,opts){
   opts=opts||{};
@@ -825,7 +886,7 @@ function setTab(t,opts){
   if(t=="map"||t=="edit")setTimeout(renderChips,0);
   if(t=="ev")renderEvents();
   if(t=="sum")renderSum();
-  if(t=="flow")renderFlow();
+  if(t=="flow")renderFlow();if(t=="flowEdit")renderFlowEdit();
   if(!opts.keepScroll)window.scrollTo({top:0,behavior:"smooth"});
   // keep active tab visible in case of overflow
   var active=document.querySelector('.tab[data-tab="'+t+'"]');
@@ -843,6 +904,7 @@ function setTheme(m){document.documentElement.setAttribute("data-theme",m);$("th
 document.addEventListener("click",function(e){
   var t=e.target;
   var tb=t.closest?t.closest(".tab"):null;if(tb){setTab(tb.dataset.tab);return}
+  if(t.id=="goFlowEdit"||(t.closest&&t.closest("#goFlowEdit"))){setTab("flowEdit");return}
   else if(t.id=="theme")setTheme(isDark()?"light":"dark");
   else if(t.id=="dupp"){var p=D.p[D.sel],c=JSON.parse(JSON.stringify(p));c.no=p.no+" (نسخة)";D.p.push(c);D.sel=D.p.length-1;render()}
 });
